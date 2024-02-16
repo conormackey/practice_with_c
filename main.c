@@ -66,6 +66,13 @@ int main(int argc, char* argv[]) {
             if (event.type == SDL_QUIT) {
                 running = 0;
             }
+            // check for key press event
+            else if (event.type == SDL_KEYDOWN) {
+                // check if the 'q' key is pressed
+                if (event.key.keysym.sym == SDLK_q) {
+                    running = 0;
+                }
+            }
         }
 
         // update cube position
