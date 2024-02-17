@@ -1,8 +1,23 @@
 #include <SDL.h>
 #include <math.h>
+#include <stdlib.h>
+#include <time.h>
+#include <SDL_ttf.h>
 
-#define WINDOW_WIDTH 640
-#define WINDOW_HEIGHT 480
+#define WINDOW_WIDTH 1280
+#define WINDOW_HEIGHT 720
+
+// global variable for line color
+SDL_Color currentLineColor = {255, 255, 255, SDL_ALPHA_OPAQUE}; // start with white
+
+// generate a random light color
+void generateRandomLightColor() {
+    // ensure the color is relatively light by setting a minimum value for each component
+    int minColorValue = 100; // adjust this value to make colors lighter or darker
+    currentLineColor.r = minColorValue + rand() % (256 - minColorValue);
+    currentLineColor.g = minColorValue + rand() % (256 - minColorValue);
+    currentLineColor.b = minColorValue + rand() % (256 - minColorValue);
+}
 
 // defines the structure for 3D points
 typedef struct {
@@ -25,6 +40,7 @@ int cubeEdges[12][2] = {
 float angleX = 0.0, angleY = 0.0; // rotation angles
 float posX = WINDOW_WIDTH / 2, posY = WINDOW_HEIGHT / 2; // starting position
 float velX = 2.0, velY = 2.0; // movement speed
+int lineThickness = 1; // initial line thickness
 
 // rotates a point around the X axis
 void rotateX(Point3D* point, float angle) {
@@ -46,11 +62,91 @@ void project(Point3D *point, int *x, int *y, float posX, float posY) {
     *y = (int)(posY - point->y);
 }
 
+// draw a thick line with the current color
+void drawThickLine(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, int thickness) {
+    SDL_SetRenderDrawColor(renderer, currentLineColor.r, currentLineColor.g, currentLineColor.b, currentLineColor.a);
+    for (int i = -thickness / 2; i <= thickness / 2; ++i) {
+        for (int j = -thickness / 2; j <= thickness / 2; ++j) {
+            SDL_RenderDrawLine(renderer, x1 + i, y1 + j, x2 + i, y2 + j);
+        }
+    }
+}
+
+void renderText(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x, int y) {
+    SDL_Color white = {255, 255, 255}; // text color
+    int lineHeight = TTF_FontLineSkip(font); // get the recommended line spacing for the font
+
+    char buffer[256]; // buffer to hold each line of text
+    const char* start = text;
+    const char* end = NULL;
+    while ((end = strchr(start, '\n')) != NULL) { // find the next newline character
+        size_t len = end - start;
+        if (len >= sizeof(buffer)) len = sizeof(buffer) - 1; // ensure buffer is not overflowed
+        strncpy(buffer, start, len); // copy the line into the buffer
+        buffer[len] = '\0'; // null-terminate the string
+
+        SDL_Surface* surface = TTF_RenderText_Solid(font, buffer, white);
+        if (!surface) {
+            printf("TTF_RenderText_Solid: %s\n", TTF_GetError());
+            return;
+        }
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (!texture) {
+            printf("SDL_CreateTextureFromSurface: %s\n", SDL_GetError());
+            SDL_FreeSurface(surface); // clean up the surface if texture creation failed
+            return;
+        }
+
+        SDL_Rect textRect = {x, y, surface->w, surface->h};
+        SDL_FreeSurface(surface);
+
+        SDL_RenderCopy(renderer, texture, NULL, &textRect);
+        SDL_DestroyTexture(texture); // clean up
+
+        y += lineHeight; // move to the next line
+        start = end + 1; // skip the newline character
+    }
+
+    // Render the last line if there's no newline at the end of the text
+    if (*start) {
+        SDL_Surface* surface = TTF_RenderText_Solid(font, start, white);
+        if (!surface) {
+            printf("TTF_RenderText_Solid: %s\n", TTF_GetError());
+            return;
+        }
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (!texture) {
+            printf("SDL_CreateTextureFromSurface: %s\n", SDL_GetError());
+            SDL_FreeSurface(surface); // clean up the surface if texture creation failed
+            return;
+        }
+
+        SDL_Rect textRect = {x, y, surface->w, surface->h};
+        SDL_FreeSurface(surface);
+
+        SDL_RenderCopy(renderer, texture, NULL, &textRect);
+        SDL_DestroyTexture(texture); // clean up
+    }
+}
+
 int main(int argc, char* argv[]) {
     SDL_Window* window; // window handle
     SDL_Renderer* renderer; // renderer handle
+    srand(time(NULL));  // random number generator
 
     SDL_Init(SDL_INIT_VIDEO); // initialize sdl video subsystem
+
+    if (TTF_Init() == -1) {
+        printf("TTF_Init: %s\n", TTF_GetError());
+        exit(2);
+    }
+
+    // font
+    TTF_Font* font = TTF_OpenFont("./terminal-grotesque.ttf", 24);
+    if (!font) {
+        printf("TTF_OpenFont: %s\n", TTF_GetError());
+        exit(2);
+    }
 
     // create a window with a title, default position, and defined width and height
     window = SDL_CreateWindow("Bouncing Tumbling Cube", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
@@ -72,74 +168,73 @@ int main(int argc, char* argv[]) {
                 if (event.key.keysym.sym == SDLK_q) {
                     running = 0;
                 }
+                // increase line thickness when 'i' is pressed
+                else if (event.key.keysym.sym == SDLK_i) {
+                    lineThickness += 1; // Increase thickness
+                }
+                // decrease line thickness when 'o' is pressed, ensuring it doesn't go below 1
+                else if (event.key.keysym.sym == SDLK_o && lineThickness > 1) {
+                    lineThickness -= 1; // Decrease thickness
+                }
+                // change line color when 'l' is pressed
+                else if (event.key.keysym.sym == SDLK_l) {
+                    generateRandomLightColor(); // Generate a new light color
+                }
             }
         }
 
-        // update cube position
-        posX += velX;
-        posY += velY;
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE); // set draw color to black
+        SDL_RenderClear(renderer); // clear the screen with black
 
-        // define a buffer zone to reverse direction when cube hits window edge
-        const float bufferZone = 100;
-        if (posX < bufferZone || posX > WINDOW_WIDTH - bufferZone) velX = -velX;
-        if (posY < bufferZone || posY > WINDOW_HEIGHT - bufferZone) velY = -velY;
+        // set draw color to white for the cube
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
 
-        // update rotation angles
-        angleX += 0.01;
-        angleY += 0.01;
-
-        // set draw color to black and clear screen
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
+        // rotate and project each vertex
+        Point3D projectedPoints[8];
+        for (int i = 0; i < 8; ++i) {
+            Point3D point = cubeVertices[i];
+            rotateX(&point, angleX);
+            rotateY(&point, angleY);
+            int tempX, tempY; // temporary variables to hold projected values
+            project(&point, &tempX, &tempY, posX, posY);
+            projectedPoints[i].x = tempX;
+            projectedPoints[i].y = tempY;
+        }
 
         // draw each edge of the cube
         for (int i = 0; i < 12; ++i) {
-            // get the vertices for the edge
-            Point3D p1 = cubeVertices[cubeEdges[i][0]];
-            Point3D p2 = cubeVertices[cubeEdges[i][1]];
-
-            // rotate points
-            rotateX(&p1, angleX);
-            rotateY(&p1, angleY);
-            rotateX(&p2, angleX);
-            rotateY(&p2, angleY);
-
-            // project 3d points to 2d
-            int x1, y1, x2, y2;
-            project(&p1, &x1, &y1, posX, posY);
-            project(&p2, &x2, &y2, posX, posY);
-
-            // set color for each edge
-            switch (i) {
-                case 0: SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); break;
-                case 1: SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); break;
-                case 2: SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255); break;
-                case 3: SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255); break;
-                case 4: SDL_SetRenderDrawColor(renderer, 0, 255, 255, 255); break;
-                case 5: SDL_SetRenderDrawColor(renderer, 255, 0, 255, 255); break;
-                case 6: SDL_SetRenderDrawColor(renderer, 255, 165, 0, 255); break;
-                case 7: SDL_SetRenderDrawColor(renderer, 128, 0, 128, 255); break;
-                case 8: SDL_SetRenderDrawColor(renderer, 255, 192, 203, 255); break;
-                case 9: SDL_SetRenderDrawColor(renderer, 128, 128, 128, 255); break;
-                case 10: SDL_SetRenderDrawColor(renderer, 128, 0, 0, 255); break;
-                case 11: SDL_SetRenderDrawColor(renderer, 0, 128, 0, 255); break;
-                default: SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); break;
-            }
-
-            // draw the line between projected points
-            SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+            int startIndex = cubeEdges[i][0];
+            int endIndex = cubeEdges[i][1];
+            Point3D startPoint = projectedPoints[startIndex];
+            Point3D endPoint = projectedPoints[endIndex];
+            drawThickLine(renderer, startPoint.x, startPoint.y, endPoint.x, endPoint.y, lineThickness);
         }
 
-        // present the rendered frame
-        SDL_RenderPresent(renderer);
+        // instructions text
+        const char* instructions =
+            "i: increase line thickness\n"
+            "o: decrease line thickness\n"
+            "l: random new color\n"
+            "q: quit";
+        // calculate position (top right corner)
+        int textX = 50;
+        int textY = 50;
+        renderText(renderer, font, instructions, textX, textY);
 
-        // delay to control frame rate
-        SDL_Delay(16);
+        SDL_RenderPresent(renderer); // update the screen with any rendering performed since the previous call
+
+        // update cube rotation
+        angleX += 0.01;
+        angleY += 0.01;
+
+        SDL_Delay(16); // delay to cap frame rate
     }
 
-    // cleanup sdl resources
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    TTF_CloseFont(font);
+    TTF_Quit();
+
+    SDL_DestroyRenderer(renderer); // clean up renderer
+    SDL_DestroyWindow(window); // clean up window
+    SDL_Quit(); // clean up SDL
     return 0;
 }
