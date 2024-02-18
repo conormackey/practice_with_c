@@ -135,7 +135,6 @@ int main(int argc, char* argv[]) {
     srand(time(NULL));  // random number generator
 
     SDL_Init(SDL_INIT_VIDEO); // initialize sdl video subsystem
-
     if (TTF_Init() == -1) {
         printf("TTF_Init: %s\n", TTF_GetError());
         exit(2);
@@ -180,6 +179,36 @@ int main(int argc, char* argv[]) {
                 else if (event.key.keysym.sym == SDLK_l) {
                     generateRandomLightColor(); // Generate a new light color
                 }
+            }
+        }
+
+        // update cube position based on velocity
+        posX += velX;
+        posY += velY;
+
+        // cube "radius" in the x and y dimensions
+        float cubeRadiusX = 100; // Half the cube's width
+        float cubeRadiusY = 100; // Half the cube's height
+
+        // check for collisions with window boundaries, adjusted for cube size
+        // if the cube hits the left or right edge of the window, reverse the x velocity
+        if (posX - cubeRadiusX <= 0 || posX + cubeRadiusX >= WINDOW_WIDTH) {
+            velX = -velX;
+            // Adjust position to prevent sticking to the edge
+            if (posX - cubeRadiusX <= 0) {
+                posX = cubeRadiusX;
+            } else {
+                posX = WINDOW_WIDTH - cubeRadiusX;
+            }
+        }
+        // if the cube hits the top or bottom edge of the window, reverse the y velocity
+        if (posY - cubeRadiusY <= 0 || posY + cubeRadiusY >= WINDOW_HEIGHT) {
+            velY = -velY;
+            // Adjust position to prevent sticking to the edge
+            if (posY - cubeRadiusY <= 0) {
+                posY = cubeRadiusY;
+            } else {
+                posY = WINDOW_HEIGHT - cubeRadiusY;
             }
         }
 
@@ -229,7 +258,6 @@ int main(int argc, char* argv[]) {
 
         SDL_Delay(16); // delay to cap frame rate
     }
-
     TTF_CloseFont(font);
     TTF_Quit();
 
