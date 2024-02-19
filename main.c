@@ -24,7 +24,6 @@ int cubeEdges[12][2] = {
     {0, 4}, {1, 5}, {2, 6}, {3, 7}
 };
 
-float angleX = 0.0, angleY = 0.0; // rotation angles
 float posX = WINDOW_WIDTH / 2, posY = WINDOW_HEIGHT / 2; // starting position
 float velX = 2.0, velY = 2.0; // movement speed
 int lineThickness = 1; // initial line thickness
@@ -43,6 +42,9 @@ void rotateY(Point3D* point, float angle) {
     point->z = -sin(angle) * x + cos(angle) * point->z;
 }
 
+float angleX = 0.0, angleY = 0.0; // rotation angles
+float angleIncrementX = 0.01, angleIncrementY = 0.01; // rotation speed or increment
+
 int main(int argc, char* argv[]) {
     SDL_Window* window; // window handle
     SDL_Renderer* renderer; // renderer handle
@@ -55,7 +57,7 @@ int main(int argc, char* argv[]) {
     }
 
     // font
-    TTF_Font* font = TTF_OpenFont("./terminal-grotesque.ttf", 24);
+    TTF_Font* font = TTF_OpenFont("./terminal-grotesque.ttf", 18);
     if (!font) {
         printf("TTF_OpenFont: %s\n", TTF_GetError());
         exit(2);
@@ -93,10 +95,26 @@ int main(int argc, char* argv[]) {
                 else if (event.key.keysym.sym == SDLK_l) {
                     generateRandomLightColor(); // Generate a new light color
                 }
+                // increase rotation speed when 'j' is pressed
+                else if (event.key.keysym.sym == SDLK_j) {
+                    angleIncrementX += 0.005; // increase rotation speed along X axis
+                    angleIncrementY += 0.005; // increase rotation speed along Y axis
+                }
+                // decrease rotation speed when 'k' is pressed, ensuring it doesn't become too slow or negative
+                else if (event.key.keysym.sym == SDLK_k) {
+                    if (angleIncrementX > 0.005 && angleIncrementY > 0.005) { // ensure speed doesn't become too slow or negative
+                        angleIncrementX -= 0.005; // decrease rotation speed along X axis
+                        angleIncrementY -= 0.005; // decrease rotation speed along Y axis
+                    }
+                }
             }
         }
 
-        // update cube position based on velocity
+        // update cube rotation
+        angleX += angleIncrementX;
+        angleY += angleIncrementY;
+
+        // update cube position
         posX += velX;
         posY += velY;
 
@@ -155,10 +173,12 @@ int main(int argc, char* argv[]) {
 
         // instructions text
         const char* instructions =
-            "i: increase line thickness\n"
-            "o: decrease line thickness\n"
-            "l: random new color\n"
-            "q: quit";
+            "I: increase line thickness\n"
+            "O: decrease line thickness\n"
+            "L: random new color\n"
+            "J: increase speed of tumbling\n"
+            "K: decrease speed of tumbling\n"
+            "Q: quit";
         // calculate position (top right corner)
         int textX = 50;
         int textY = 50;
