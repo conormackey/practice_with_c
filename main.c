@@ -27,6 +27,7 @@ int cubeEdges[12][2] = {
 float posX = WINDOW_WIDTH / 2, posY = WINDOW_HEIGHT / 2; // starting position
 float velX = 2.0, velY = 2.0; // movement speed
 int lineThickness = 1; // initial line thickness
+float cubeScale = 1.0; // initial cube scale
 
 // rotates a point around the X axis
 void rotateX(Point3D* point, float angle) {
@@ -40,6 +41,13 @@ void rotateY(Point3D* point, float angle) {
     float x = point->x;
     point->x = cos(angle) * x + sin(angle) * point->z;
     point->z = -sin(angle) * x + cos(angle) * point->z;
+}
+
+// scales a point by the cubeScale factor
+void scalePoint(Point3D* point) {
+    point->x *= cubeScale;
+    point->y *= cubeScale;
+    point->z *= cubeScale;
 }
 
 float angleX = 0.0, angleY = 0.0; // rotation angles
@@ -107,6 +115,14 @@ int main(int argc, char* argv[]) {
                         angleIncrementY -= 0.005; // decrease rotation speed along Y axis
                     }
                 }
+                // grow the cube when 'n' is pressed
+                else if (event.key.keysym.sym == SDLK_n) {
+                    cubeScale += 0.1; // increase cube scale
+                }
+                // shrink the cube when 'm' is pressed, ensuring it doesn't become too small
+                else if (event.key.keysym.sym == SDLK_m && cubeScale > 0.1) {
+                    cubeScale -= 0.1; // decrease cube scale
+                }
             }
         }
 
@@ -150,10 +166,11 @@ int main(int argc, char* argv[]) {
         // set draw color to white for the cube
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
 
-        // rotate and project each vertex
+        // scale, rotate, and project each vertex
         Point3D projectedPoints[8];
         for (int i = 0; i < 8; ++i) {
             Point3D point = cubeVertices[i];
+            scalePoint(&point); // apply scaling
             rotateX(&point, angleX);
             rotateY(&point, angleY);
             int tempX, tempY; // temporary variables to hold projected values
@@ -178,6 +195,8 @@ int main(int argc, char* argv[]) {
             "L: random new color\n"
             "J: increase speed of tumbling\n"
             "K: decrease speed of tumbling\n"
+            "N: increase cube size\n"
+            "M: decrease sube size\n"
             "Q: quit";
         // calculate position (top right corner)
         int textX = 50;
