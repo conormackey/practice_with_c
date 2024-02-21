@@ -123,6 +123,10 @@ int main(int argc, char* argv[]) {
                 else if (event.key.keysym.sym == SDLK_m && cubeScale > 0.1) {
                     cubeScale -= 0.1; // decrease cube scale
                 }
+                // toggle smooth color transition mode when 'p' is pressed
+                else if (event.key.keysym.sym == SDLK_p) {
+                    toggleColorChangeMode(); // Toggle the smooth color transition mode
+                }
             }
         }
 
@@ -163,12 +167,17 @@ int main(int argc, char* argv[]) {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE); // set draw color to black
         SDL_RenderClear(renderer); // clear the screen with black
 
+
         // set draw color to white for the cube
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+
+        updateLineColor();
+        SDL_SetRenderDrawColor(renderer, getCurrentLineColor().r, getCurrentLineColor().g, getCurrentLineColor().b, getCurrentLineColor().a); // Use the updated line color
 
         // scale, rotate, and project each vertex
         Point3D projectedPoints[8];
         for (int i = 0; i < 8; ++i) {
+
             Point3D point = cubeVertices[i];
             scalePoint(&point); // apply scaling
             rotateX(&point, angleX);
@@ -197,6 +206,7 @@ int main(int argc, char* argv[]) {
             "K: decrease speed of tumbling\n"
             "N: increase cube size\n"
             "M: decrease sube size\n"
+            "P: toggle color changing mode\n"
             "Q: quit";
         // calculate position (top right corner)
         int textX = 50;
